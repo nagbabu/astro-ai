@@ -57,7 +57,7 @@ def generate_chart(year, month, day, hour, lat, lon):
     planet_positions = {}
 
     for name, planet in PLANETS.items():
-        pos = swe.calc_ut(jd, planet)[0][0]
+        pos = swe.calc_ut(jd, planet, swe.FLG_SIDEREAL)[0][0]   ✅
         sidereal_pos = pos - ayanamsa
         sidereal_pos = sidereal_pos % 360
 
