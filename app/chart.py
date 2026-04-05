@@ -1,43 +1,90 @@
 import swisseph as swe
-from app.utils import get_sign, get_house, get_nakshatra, DASHA_YEARS
 
-def calculate_lagna(jd, lat, lon):
-    houses, ascmc = swe.houses(jd, lat, lon)
-    return ascmc[0]
+# Nakshatra list
+NAKSHATRAS = [
+    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira",
+    "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha",
+    "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra",
+    "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula",
+    "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta",
+    "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+]
+
+SIGNS = [
+    "Aries", "Taurus", "Gemini", "Cancer",
+    "Leo", "Virgo", "Libra", "Scorpio",
+    "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+]
+
+PLANETS = {
+    "Sun": swe.SUN,
+    "Moon": swe.MOON,
+    "Mars": swe.MARS,
+    "Mercury": swe.MERCURY,
+    "Jupiter": swe.JUPITER,
+    "Venus": swe.VENUS,
+    "Saturn": swe.SATURN
+}
+
+
+def get_sign(degree):
+    return SIGNS[int(degree // 30)]
+
+
+def get_nakshatra(degree):
+    index = int(degree / (13 + 20/60))
+    return NAKSHATRAS[index]
+
 
 def generate_chart(year, month, day, hour, lat, lon):
-    swe.set_topo(lon, lat, 0)
-    jd = swe.julday(year, month, day, hour)
 
-    asc_deg = calculate_lagna(jd, lat, lon)
+    # ✅ STEP 1: IST → UTC
+    hour_utc = hour - 5.5
+    if hour_utc < 0:
+        hour_utc += 24
+        day -= 1
 
-    planets_raw = {
-        "Sun": swe.calc_ut(jd, swe.SUN)[0][0],
-        "Moon": swe.calc_ut(jd, swe.MOON)[0][0],
-        "Mars": swe.calc_ut(jd, swe.MARS)[0][0],
-        "Mercury": swe.calc_ut(jd, swe.MERCURY)[0][0],
-        "Jupiter": swe.calc_ut(jd, swe.JUPITER)[0][0],
-        "Venus": swe.calc_ut(jd, swe.VENUS)[0][0],
-        "Saturn": swe.calc_ut(jd, swe.SATURN)[0][0],
-    }
+    # ✅ STEP 2: Julian Day
+    jd = swe.julday(year, month, day, hour_utc)
 
-    planets = {}
-    for p, deg in planets_raw.items():
-        planets[p] = {
-            "degree": deg,
-            "sign": get_sign(deg),
-            "house": get_house(deg, asc_deg)
+    # ✅ STEP 3: Set Lahiri Ayanamsa (Vedic)
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+
+    # ✅ STEP 4: Get Ayanamsa
+    ayanamsa = swe.get_ayanamsa(jd)
+
+    # ✅ STEP 5: Planets
+    planet_positions = {}
+
+    for name, planet in PLANETS.items():
+        pos = swe.calc_ut(jd, planet)[0][0]
+        sidereal_pos = pos - ayanamsa
+        sidereal_pos = sidereal_pos % 360
+
+        planet_positions[name] = {
+            "degree": sidereal_pos,
+            "sign": get_sign(sidereal_pos),
+            "house": int((sidereal_pos // 30) + 1)
         }
 
-    moon_deg = planets_raw["Moon"]
-    nakshatra, dasha_lord = get_nakshatra(moon_deg)
+    # ✅ STEP 6: Lagna (Ascendant)
+    houses, ascmc = swe.houses(jd, lat, lon)
+    lagna = ascmc[0] - ayanamsa
+    lagna = lagna % 360
+
+    # ✅ STEP 7: Moon Nakshatra
+    moon_degree = planet_positions["Moon"]["degree"]
+    nakshatra = get_nakshatra(moon_degree)
 
     return {
-        "lagna": {"degree": asc_deg, "sign": get_sign(asc_deg)},
-        "planets": planets,
+        "lagna": {
+            "degree": lagna,
+            "sign": get_sign(lagna)
+        },
+        "planets": planet_positions,
         "nakshatra": nakshatra,
         "current_dasha": {
-            "lord": dasha_lord,
-            "duration": DASHA_YEARS[dasha_lord]
+            "lord": "Moon",
+            "duration": 10
         }
     }
