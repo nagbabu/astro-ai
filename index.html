@@ -29,7 +29,7 @@ button{background:#6366f1; color:white;}
 document.getElementById("f").onsubmit=async(e)=>{
 e.preventDefault();
 let y=year.value,m=month.value,d=day.value,h=hour.value,la=lat.value,lo=lon.value;
-let res=await fetch(`/predict?year=${y}&month=${m}&day=${d}&hour=${h}&lat=${la}&lon=${lo}`);
+let res=await fetch(`https://910a6ed4-b866-48c7-a8b7-1c5373af7613-00-jx7xvxkcskwd.sisko.replit.dev/predict?year=${y}&month=${m}&day=${d}&hour=${h}&lat=${la}&lon=${lo}`);
 let data=await res.json();
 r.innerText=JSON.stringify(data,null,2);
 }
